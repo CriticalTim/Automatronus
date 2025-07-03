@@ -4,7 +4,7 @@
     --accent-bg: #3a3a3a;
     --primary-text: #ffffff;
     --secondary-text: #b0b0b0;
-    --accent-color: #4a90e2;
+    --accent-color: #ff8c00;
     --success-color: #5cb85c;
     --warning-color: #f0ad4e;
     --danger-color: #d9534f;
@@ -120,7 +120,7 @@ body {
 }
 
 .btn:hover {
-    background-color: #357abd;
+    background-color: #e67e00;
     transform: translateY(-2px);
 }
 
