@@ -292,37 +292,49 @@
         isProcessing = true;
         try
         {
-            // For demo purposes, we'll use a sample file path
-            // In a real application, you'd need to handle file uploads properly
-            var filePath = !string.IsNullOrEmpty(selectedFilePath) ? selectedFilePath : 
-                          Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), selectedFileName);
+            // Try to use the actual PDF file path - look in Profile folder
+            var profileFolder = Path.Combine(Directory.GetCurrentDirectory(), "Profile");
+            var filePath = Path.Combine(profileFolder, "Profil_Tim_Storbeck.pdf");
             
+            // If the above doesn't exist, try other common locations
             if (!File.Exists(filePath))
             {
-                // Create demo skills for testing when file doesn't exist
+                filePath = !string.IsNullOrEmpty(selectedFilePath) ? selectedFilePath : 
+                          Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), selectedFileName);
+            }
+            
+            var (skills, projects, errorMessage) = await PdfService.ExtractSkillsAndProjectsAsync(filePath);
+            
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"PDF Processing Error: {errorMessage}");
+                
+                // Still show demo skills if extraction failed, but inform user
                 extractedSkills = new List<ExtractedSkill>
                 {
-                    new ExtractedSkill { Name = "C#", YearsOfExperience = 5, Proficiency = SkillProficiency.Expert },
-                    new ExtractedSkill { Name = "JavaScript", YearsOfExperience = 3, Proficiency = SkillProficiency.Advanced },
-                    new ExtractedSkill { Name = "React", YearsOfExperience = 2, Proficiency = SkillProficiency.Intermediate },
-                    new ExtractedSkill { Name = "Docker", YearsOfExperience = 1, Proficiency = SkillProficiency.Beginner }
+                    new ExtractedSkill { Name = "C# (Demo)", YearsOfExperience = 5, Proficiency = SkillProficiency.Expert },
+                    new ExtractedSkill { Name = "JavaScript (Demo)", YearsOfExperience = 3, Proficiency = SkillProficiency.Advanced },
+                    new ExtractedSkill { Name = "React (Demo)", YearsOfExperience = 2, Proficiency = SkillProficiency.Intermediate }
                 };
                 extractedProjects = new List<string>
                 {
-                    "E-commerce platform using ASP.NET Core and React",
-                    "Microservices architecture with Docker and Kubernetes"
+                    "Demo: E-commerce platform using ASP.NET Core and React"
                 };
             }
             else
             {
-                var (skills, projects) = await PdfService.ExtractSkillsAndProjectsAsync(filePath);
                 extractedSkills = skills;
                 extractedProjects = projects;
+                
+                if (skills.Count > 0)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", $"Successfully extracted {skills.Count} skills from PDF!");
+                }
             }
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error processing PDF: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"Unexpected error processing PDF: {ex.Message}");
         }
         finally
         {
