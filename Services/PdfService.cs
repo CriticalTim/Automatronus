@@ -91,94 +91,53 @@ namespace Automatronus.Services
             
             try
             {
-                // Extract skills from the specific PDF format where skills are listed with years and proficiency
                 var lines = text.Split('\n').Select(line => line.Trim()).Where(line => !string.IsNullOrEmpty(line)).ToList();
                 
-                // Find skills sections - looking for patterns like "Kompetenzen", "Programmierung", "Datenbankenkenntnisse"
-                var skillSections = new[] { "Kompetenzen", "Programmierung", "Datenbankenkenntnisse", "Software Entwicklung", "Web Entwicklung" };
+                // Define the skill section headers based on the PDF structure
+                var skillSections = new[] { "Kompetenzen", "Datenbankenkenntnisse", "Programmierung", "Zertifikate", "Branchenkenntnisse", "Fremdsprachen" };
                 
                 for (int i = 0; i < lines.Count; i++)
                 {
                     var line = lines[i];
                     
-                    // Check if this line contains a skill section header
-                    if (skillSections.Any(section => line.Contains(section, StringComparison.OrdinalIgnoreCase)))
+                    // Check if this line is a skill section header
+                    if (skillSections.Any(section => line.Equals(section, StringComparison.OrdinalIgnoreCase)))
                     {
-                        // Process the following lines until we hit another section or end
-                        i++; // Move to next line after header
+                        Console.WriteLine($"Found skill section: {line}");
+                        i++; // Move to the next line after the header
                         
+                        // Process skills in this section
                         while (i < lines.Count)
                         {
-                            var skillLine = lines[i].Trim();
+                            var currentLine = lines[i].Trim();
                             
                             // Break if we hit another major section
-                            if (skillLine.Contains("Jahre") && skillLine.Contains("+") && 
-                                i + 1 < lines.Count && lines[i + 1].Contains("Jahre") && lines[i + 1].Contains("+"))
+                            if (skillSections.Any(s => s.Equals(currentLine, StringComparison.OrdinalIgnoreCase)) ||
+                                currentLine.StartsWith("Branche", StringComparison.OrdinalIgnoreCase) ||
+                                currentLine.All(char.IsUpper) && currentLine.Length > 8)
                             {
-                                // This looks like a years/proficiency line, skip it
+                                i--; // Step back so the outer loop can process this line
+                                break;
+                            }
+                            
+                            // Skip legend lines
+                            if (currentLine.Contains("Grundkenntnisse") || currentLine.Contains("Basiskenntnisse") ||
+                                currentLine.Contains("Fortgeschritten") || currentLine.Contains("Expertenkenntnisse") ||
+                                currentLine.StartsWith("+") || currentLine.StartsWith("Profil von"))
+                            {
                                 i++;
                                 continue;
                             }
                             
-                            // Break if we hit a major section header
-                            if (skillLine.All(char.IsUpper) || skillLine.Contains("Branche") || 
-                                skillLine.Contains("Projektumfang") || skillLine.Contains("Zeitraum") ||
-                                skillLine.Contains("Zertifikate") || skillLine.Contains("Fremdsprachen"))
-                            {
-                                break;
-                            }
-                            
-                            // Try to extract skill name with years and proficiency
-                            var skill = ParseSkillLine(skillLine, lines, i);
+                            // Parse skill with the specific format: skill name on one line, years and proficiency on the next lines
+                            var skill = ParseSkillWithFormat(currentLine, lines, i);
                             if (skill != null && !extractedSkills.Any(s => s.Name.Equals(skill.Name, StringComparison.OrdinalIgnoreCase)))
                             {
                                 extractedSkills.Add(skill);
+                                Console.WriteLine($"Extracted skill: {skill.Name}, {skill.YearsOfExperience} years, {skill.GetProficiencySymbols()}");
                             }
                             
                             i++;
-                        }
-                        i--; // Adjust for the outer loop increment
-                    }
-                }
-                
-                // If no skills found with the section approach, try the generic approach
-                if (extractedSkills.Count == 0)
-                {
-                    // Look for lines that match the pattern: SkillName followed by Years and Proficiency
-                    var skillPattern = @"^([A-Za-z][A-Za-z0-9#\.\+\-\s/]*?)\s*$";
-                    var yearPattern = @"^(\d+)\s*Jahre?\s*$";
-                    var proficiencyPattern = @"^(\+{1,4})\s*$";
-                    
-                    for (int i = 0; i < lines.Count - 2; i++)
-                    {
-                        var skillMatch = Regex.Match(lines[i], skillPattern);
-                        if (skillMatch.Success)
-                        {
-                            var skillName = skillMatch.Groups[1].Value.Trim();
-                            
-                            // Check if next lines contain years and proficiency
-                            if (i + 1 < lines.Count && Regex.IsMatch(lines[i + 1], yearPattern) &&
-                                i + 2 < lines.Count && Regex.IsMatch(lines[i + 2], proficiencyPattern))
-                            {
-                                var yearMatch = Regex.Match(lines[i + 1], yearPattern);
-                                var profMatch = Regex.Match(lines[i + 2], proficiencyPattern);
-                                
-                                if (yearMatch.Success && profMatch.Success &&
-                                    int.TryParse(yearMatch.Groups[1].Value, out int years))
-                                {
-                                    var skill = new ExtractedSkill
-                                    {
-                                        Name = skillName,
-                                        YearsOfExperience = years,
-                                        Proficiency = (SkillProficiency)Math.Min(profMatch.Groups[1].Value.Length, 4)
-                                    };
-                                    
-                                    if (!extractedSkills.Any(s => s.Name.Equals(skill.Name, StringComparison.OrdinalIgnoreCase)))
-                                    {
-                                        extractedSkills.Add(skill);
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -186,90 +145,91 @@ namespace Automatronus.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error parsing skills: {ex.Message}");
-                // Return empty list if parsing fails
                 return new List<ExtractedSkill>();
             }
 
             return extractedSkills.DistinctBy(s => s.Name).ToList();
         }
         
-        private ExtractedSkill? ParseSkillLine(string line, List<string> allLines, int currentIndex)
+        private ExtractedSkill? ParseSkillWithFormat(string skillLine, List<string> allLines, int currentIndex)
         {
-            if (string.IsNullOrWhiteSpace(line))
+            if (string.IsNullOrWhiteSpace(skillLine))
                 return null;
-                
-            // Skip lines that are clearly not skills
-            if (line.All(char.IsUpper) || line.Contains("Jahre") || line.Contains("+") ||
-                line.Contains("Grundkenntnisse") || line.Contains("Basiskenntnisse") ||
-                line.Contains("Fortgeschritten") || line.Contains("Expertenkenntnisse"))
-            {
-                return null;
-            }
             
             try
             {
                 // Clean up the skill name
-                var skillName = line.Trim();
+                var skillName = skillLine.Trim();
                 
-                // Remove common suffixes that aren't part of skill names
-                var suffixesToRemove = new[] { "2014 - 2022", "2022", "Associate", "Developer", ".NET" };
-                foreach (var suffix in suffixesToRemove)
-                {
-                    if (skillName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        skillName = skillName.Substring(0, skillName.Length - suffix.Length).Trim();
-                    }
-                }
-                
-                // Skip if skill name is too short or contains invalid characters
-                if (skillName.Length < 2 || skillName.All(char.IsDigit))
-                {
+                // Skip if this looks like a years or proficiency line
+                if (Regex.IsMatch(skillName, @"^\d+\s*Jahre?$") || Regex.IsMatch(skillName, @"^\+{1,4}$"))
                     return null;
-                }
                 
-                // Try to find years and proficiency in the surrounding lines
+                // Skip legend and section identifiers
+                if (skillName.Contains("von") && skillName.Contains("8") || 
+                    skillName.Length < 2 || 
+                    skillName.All(char.IsDigit))
+                    return null;
+                
+                // Look ahead to find years and proficiency in the same line or next lines
                 int? years = null;
                 SkillProficiency proficiency = SkillProficiency.Beginner;
                 
-                // Look for years in the next few lines
-                for (int i = currentIndex + 1; i < Math.Min(currentIndex + 3, allLines.Count); i++)
+                // Check if years and proficiency are in the same line (format: "SkillName    5 Jahre    ++++")
+                var sameLineMatch = Regex.Match(skillLine, @"^(.+?)\s+(\d+)\s*Jahre?\s+(\+{1,4})\s*$");
+                if (sameLineMatch.Success)
                 {
-                    var nextLine = allLines[i].Trim();
-                    if (Regex.IsMatch(nextLine, @"^\d+\s*Jahre?$"))
+                    skillName = sameLineMatch.Groups[1].Value.Trim();
+                    if (int.TryParse(sameLineMatch.Groups[2].Value, out int extractedYears))
                     {
-                        if (int.TryParse(Regex.Match(nextLine, @"(\d+)").Groups[1].Value, out int extractedYears))
+                        years = extractedYears;
+                    }
+                    proficiency = (SkillProficiency)Math.Min(sameLineMatch.Groups[3].Value.Length, 4);
+                }
+                else
+                {
+                    // Look for years and proficiency in subsequent lines
+                    for (int i = currentIndex + 1; i < Math.Min(currentIndex + 4, allLines.Count); i++)
+                    {
+                        var nextLine = allLines[i].Trim();
+                        
+                        // Try to extract years
+                        if (years == null && Regex.IsMatch(nextLine, @"^\d+\s*Jahre?$"))
                         {
-                            years = extractedYears;
-                            break;
+                            var yearMatch = Regex.Match(nextLine, @"^(\d+)\s*Jahre?$");
+                            if (yearMatch.Success && int.TryParse(yearMatch.Groups[1].Value, out int extractedYears))
+                            {
+                                years = extractedYears;
+                            }
+                        }
+                        
+                        // Try to extract proficiency
+                        if (Regex.IsMatch(nextLine, @"^\+{1,4}$"))
+                        {
+                            proficiency = (SkillProficiency)Math.Min(nextLine.Length, 4);
                         }
                     }
                 }
                 
-                // Look for proficiency in the next few lines
-                for (int i = currentIndex + 1; i < Math.Min(currentIndex + 3, allLines.Count); i++)
+                // Only return skill if we have a reasonable skill name
+                if (skillName.Length >= 2)
                 {
-                    var nextLine = allLines[i].Trim();
-                    if (Regex.IsMatch(nextLine, @"^\+{1,4}$"))
+                    return new ExtractedSkill
                     {
-                        var plusCount = nextLine.Length;
-                        proficiency = (SkillProficiency)Math.Min(plusCount, 4);
-                        break;
-                    }
+                        Name = skillName,
+                        YearsOfExperience = years,
+                        Proficiency = proficiency
+                    };
                 }
-                
-                return new ExtractedSkill
-                {
-                    Name = skillName,
-                    YearsOfExperience = years,
-                    Proficiency = proficiency
-                };
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error parsing skill line '{line}': {ex.Message}");
-                return null;
+                Console.WriteLine($"Error parsing skill line '{skillLine}': {ex.Message}");
             }
+            
+            return null;
         }
+        
 
         private int? ExtractYearsOfExperience(string text, string skillName)
         {
@@ -314,20 +274,68 @@ namespace Automatronus.Services
         {
             var projects = new List<string>();
             
-            var projectSectionMatch = Regex.Match(text, @"(?i)(projects?|work experience|experience|portfolio)[\s\S]*?(?=\n\n|\n[A-Z]|$)", RegexOptions.IgnoreCase);
-            if (projectSectionMatch.Success)
+            try
             {
-                var projectSection = projectSectionMatch.Value;
-                var projectMatches = Regex.Matches(projectSection, @"(?i)(?:project|developed|built|created|implemented)[\s\S]*?(?=\n\n|\n(?=\w)|$)");
+                var lines = text.Split('\n').Select(line => line.Trim()).Where(line => !string.IsNullOrEmpty(line)).ToList();
                 
-                foreach (Match match in projectMatches)
+                for (int i = 0; i < lines.Count; i++)
                 {
-                    var projectText = match.Value.Trim();
-                    if (projectText.Length > 10)
+                    var line = lines[i];
+                    
+                    // Look for project sections that start with "Branche"
+                    if (line.StartsWith("Branche", StringComparison.OrdinalIgnoreCase))
                     {
-                        projects.Add(projectText.Substring(0, Math.Min(projectText.Length, 200)));
+                        var projectInfo = new List<string>();
+                        projectInfo.Add(line); // Add the Branche line
+                        
+                        i++; // Move to next line
+                        
+                        // Collect project information until we hit the next "Branche" or end
+                        while (i < lines.Count && !lines[i].StartsWith("Branche", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var currentLine = lines[i].Trim();
+                            
+                            // Skip empty lines and page indicators
+                            if (!string.IsNullOrEmpty(currentLine) && 
+                                !currentLine.StartsWith("Profil von") &&
+                                !Regex.IsMatch(currentLine, @"^\d+\s*von\s*\d+$"))
+                            {
+                                // Include important project details
+                                if (currentLine.StartsWith("Aufgabe", StringComparison.OrdinalIgnoreCase) ||
+                                    currentLine.StartsWith("Rolle", StringComparison.OrdinalIgnoreCase) ||
+                                    currentLine.StartsWith("Projektumfang", StringComparison.OrdinalIgnoreCase) ||
+                                    currentLine.StartsWith("Zeitraum", StringComparison.OrdinalIgnoreCase) ||
+                                    currentLine.StartsWith("Technologien", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    projectInfo.Add(currentLine);
+                                }
+                                // Include task descriptions (usually after "Aufgabe")
+                                else if (projectInfo.Count > 0 && projectInfo.Last().StartsWith("Aufgabe"))
+                                {
+                                    projectInfo.Add(currentLine);
+                                }
+                            }
+                            
+                            i++;
+                        }
+                        
+                        // Create a formatted project description
+                        if (projectInfo.Count > 1)
+                        {
+                            var projectDescription = string.Join(" | ", projectInfo);
+                            if (projectDescription.Length > 10)
+                            {
+                                projects.Add(projectDescription.Substring(0, Math.Min(projectDescription.Length, 300)));
+                            }
+                        }
+                        
+                        i--; // Step back so we can process the next "Branche" line
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error extracting projects: {ex.Message}");
             }
 
             return projects.Take(10).ToList();

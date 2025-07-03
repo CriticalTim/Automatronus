@@ -261,7 +261,9 @@
         var profile = await ProfileService.GetCurrentProfileAsync();
         if (profile != null)
         {
-            savedSkills = await ProfileService.GetSkillNamesAsync(profile.Id);
+            var existingSkills = await ProfileService.GetExtractedSkillsAsync(profile.Id);
+            extractedSkills = existingSkills;
+            savedSkills = existingSkills.Select(s => s.Name).ToList();
         }
     }
 
@@ -374,7 +376,7 @@
             profile = await ProfileService.CreateOrUpdateProfileAsync(profile);
         }
 
-        await ProfileService.AddSkillsToProfileAsync(profile.Id, extractedSkills.Select(s => s.Name).ToList());
+        await ProfileService.AddExtractedSkillsToProfileAsync(profile.Id, extractedSkills);
         savedSkills = extractedSkills.Select(s => s.Name).ToList();
         
         await JSRuntime.InvokeVoidAsync("alert", "Skills saved successfully!");

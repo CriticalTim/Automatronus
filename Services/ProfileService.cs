@@ -63,12 +63,53 @@ namespace Automatronus.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task AddExtractedSkillsToProfileAsync(int profileId, List<ExtractedSkill> extractedSkills)
+        {
+            var existingSkills = await _context.Skills
+                .Where(s => s.ProfileId == profileId)
+                .ToListAsync();
+            
+            _context.Skills.RemoveRange(existingSkills);
+            
+            var skills = extractedSkills.Select(extractedSkill => new Skill
+            {
+                Name = extractedSkill.Name,
+                YearsOfExperience = extractedSkill.YearsOfExperience,
+                Proficiency = extractedSkill.Proficiency,
+                ProfileId = profileId
+            }).ToList();
+            
+            _context.Skills.AddRange(skills);
+            await _context.SaveChangesAsync();
+        }
+
         public async Task<List<string>> GetSkillNamesAsync(int profileId)
         {
             return await _context.Skills
                 .Where(s => s.ProfileId == profileId)
                 .Select(s => s.Name)
                 .ToListAsync();
+        }
+
+        public async Task<List<Skill>> GetSkillsAsync(int profileId)
+        {
+            return await _context.Skills
+                .Where(s => s.ProfileId == profileId)
+                .ToListAsync();
+        }
+
+        public async Task<List<ExtractedSkill>> GetExtractedSkillsAsync(int profileId)
+        {
+            var skills = await _context.Skills
+                .Where(s => s.ProfileId == profileId)
+                .ToListAsync();
+
+            return skills.Select(skill => new ExtractedSkill
+            {
+                Name = skill.Name,
+                YearsOfExperience = skill.YearsOfExperience,
+                Proficiency = skill.Proficiency
+            }).ToList();
         }
     }
 }
