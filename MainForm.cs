@@ -28,11 +28,7 @@ namespace Automatronus
                 HostPage = "wwwroot/index.html",
                 Services = _serviceProvider
             };
-            blazorWebView.RootComponents.Add(new RootComponent
-            {
-                Selector = "#app",
-                ComponentType = typeof(App)
-            });
+            blazorWebView.RootComponents.Add(new RootComponent("#app", typeof(App), null));
 
             this.Controls.Add(blazorWebView);
         }
