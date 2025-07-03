@@ -181,3 +181,4 @@
 /home/tim/Automatronus/obj/Debug/net8.0/Automatronus.pdb
 /home/tim/Automatronus/obj/Debug/net8.0/Automatronus.genruntimeconfig.cache
 /home/tim/Automatronus/obj/Debug/net8.0/ref/Automatronus.dll
+/home/tim/Automatronus/obj/Debug/net8.0/Automatronus.sourcelink.json

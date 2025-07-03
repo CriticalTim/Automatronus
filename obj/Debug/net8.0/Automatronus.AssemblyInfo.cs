@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Automatronus")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+be499a3f2377a2a27785cd92d1f5100330725fa9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+20ee2856f4b29f679c33b89506f8f739714edf26")]
 [assembly: System.Reflection.AssemblyProductAttribute("Automatronus")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Automatronus")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

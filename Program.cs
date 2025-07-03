@@ -20,7 +20,7 @@ namespace Automatronus
                 .ConfigureServices((context, services) =>
                 {
 #if WINDOWS
-                    services.AddBlazorWebView();
+                    services.AddWindowsFormsBlazorWebView();
 #endif
                     services.AddDbContext<AutomatronusContext>(options =>
                         options.UseSqlite("Data Source=automatronus.db"));
