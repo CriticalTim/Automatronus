@@ -1,0 +1,37 @@
+{
+  "Files": [
+    {
+      "Id": "/home/tim/Automatronus/wwwroot/css/app.css",
+      "PackagePath": "staticwebassets/css/app.css"
+    },
+    {
+      "Id": "/home/tim/Automatronus/wwwroot/css/bootstrap/bootstrap.min.css",
+      "PackagePath": "staticwebassets/css/bootstrap/bootstrap.min.css"
+    },
+    {
+      "Id": "/home/tim/Automatronus/wwwroot/css/modern-theme.css",
+      "PackagePath": "staticwebassets/css/modern-theme.css"
+    },
+    {
+      "Id": "/home/tim/Automatronus/wwwroot/index.html",
+      "PackagePath": "staticwebassets/index.html"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.Automatronus.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.Automatronus.props",
+      "PackagePath": "build\\Automatronus.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.Automatronus.props",
+      "PackagePath": "buildMultiTargeting\\Automatronus.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.Automatronus.props",
+      "PackagePath": "buildTransitive\\Automatronus.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

@@ -1,0 +1,373 @@
+@page "/projects"
+@inject ProfileService ProfileService
+@inject ProjectService ProjectService
+@inject WebScrapingService WebScrapingService
+@inject IJSRuntime JSRuntime
+
+<div class="projects-page">
+    <div class="actions-section">
+        <div class="card">
+            <div class="card-header">Actions</div>
+            <div class="action-buttons">
+                <button class="btn" @onclick="ScrapeProjects" disabled="@(!canScrape || isScraping)">
+                    @if (isScraping)
+                    {
+                        <span>Scraping...</span>
+                    }
+                    else
+                    {
+                        <span>Scrape Projects</span>
+                    }
+                </button>
+                <button class="btn" @onclick="RefreshProjects">Refresh</button>
+            </div>
+            
+            @if (!canScrape)
+            {
+                <div class="info-message">
+                    <p>Please upload a profile and extract skills before scraping projects.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="search-section">
+        <div class="card">
+            <div class="search-bar">
+                <input type="text" @bind="searchTerm" @onkeypress="HandleSearchKeyPress" placeholder="Search projects..." class="form-control" />
+                <button class="btn" @onclick="SearchProjects">Search</button>
+                <button class="btn" @onclick="ClearSearch">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs-section">
+        <div class="tab-nav">
+            <button class="@(activeTab == "current" ? "active" : "")" @onclick="@(() => SetActiveTab("current"))">
+                Current Projects (@currentProjects.Count)
+            </button>
+            <button class="@(activeTab == "all" ? "active" : "")" @onclick="@(() => SetActiveTab("all"))">
+                All Projects (@allProjects.Count)
+            </button>
+        </div>
+
+        <div class="tab-content">
+            @if (activeTab == "current")
+            {
+                @if (currentProjects.Any())
+                {
+                    <div class="projects-table">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Project Name</th>
+                                    <th>Company</th>
+                                    <th>Location</th>
+                                    <th>Budget</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var project in currentProjects)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@project.Name</strong>
+                                            @if (!string.IsNullOrEmpty(project.Description))
+                                            {
+                                                <br />
+                                                <small>@project.Description.Substring(0, Math.Min(project.Description.Length, 100))...</small>
+                                            }
+                                        </td>
+                                        <td>@project.CompanyName</td>
+                                        <td>@project.Location</td>
+                                        <td>
+                                            @if (project.Budget.HasValue)
+                                            {
+                                                <span>@project.Budget.Value.ToString("C") @project.Currency</span>
+                                            }
+                                        </td>
+                                        <td>@project.DateScraped.ToString("dd.MM.yyyy")</td>
+                                        <td>
+                                            <span class="status-@project.Status.ToString().ToLower()">@project.Status</span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-success" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Applied)">Applied</button>
+                                                <button class="btn btn-danger" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Denied)">Denied</button>
+                                                <button class="btn btn-warning" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Success)">Success</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <p>No current projects found. Try scraping for new projects.</p>
+                    </div>
+                }
+            }
+            else if (activeTab == "all")
+            {
+                @if (allProjects.Any())
+                {
+                    <div class="projects-table">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Project Name</th>
+                                    <th>Company</th>
+                                    <th>Location</th>
+                                    <th>Budget</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var project in allProjects)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@project.Name</strong>
+                                            @if (!string.IsNullOrEmpty(project.Description))
+                                            {
+                                                <br />
+                                                <small>@project.Description.Substring(0, Math.Min(project.Description.Length, 100))...</small>
+                                            }
+                                        </td>
+                                        <td>@project.CompanyName</td>
+                                        <td>@project.Location</td>
+                                        <td>
+                                            @if (project.Budget.HasValue)
+                                            {
+                                                <span>@project.Budget.Value.ToString("C") @project.Currency</span>
+                                            }
+                                        </td>
+                                        <td>@project.DateScraped.ToString("dd.MM.yyyy")</td>
+                                        <td>
+                                            <span class="status-@project.Status.ToString().ToLower()">@project.Status</span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-success" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Applied)">Applied</button>
+                                                <button class="btn btn-danger" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Denied)">Denied</button>
+                                                <button class="btn btn-warning" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Success)">Success</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <p>No projects found.</p>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .projects-page {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .action-buttons .btn {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    .info-message {
+        margin-top: 15px;
+        padding: 10px;
+        background-color: var(--warning-color);
+        border-radius: var(--border-radius);
+        color: white;
+    }
+
+    .search-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .search-bar input {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    .projects-table {
+        overflow-x: auto;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th,
+    .table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--accent-bg);
+        vertical-align: top;
+    }
+
+    .table th {
+        background-color: var(--accent-bg);
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+    }
+
+    .table tr:hover {
+        background-color: var(--accent-bg);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--secondary-text);
+    }
+
+    .tab-content {
+        margin-top: 20px;
+    }
+</style>
+
+@code {
+    private string activeTab = "current";
+    private string searchTerm = "";
+    private bool canScrape = false;
+    private bool isScraping = false;
+    private List<Models.Project> currentProjects = new();
+    private List<Models.Project> allProjects = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+        await CheckCanScrape();
+    }
+
+    private async Task LoadProjects()
+    {
+        allProjects = await ProjectService.GetProjectsAsync();
+        
+        var latestSession = await ProjectService.GetScrapeSessionsAsync();
+        if (latestSession.Any())
+        {
+            currentProjects = await ProjectService.GetProjectsAsync(latestSession.First().Id);
+        }
+    }
+
+    private async Task CheckCanScrape()
+    {
+        var profile = await ProfileService.GetCurrentProfileAsync();
+        if (profile != null)
+        {
+            var skills = await ProfileService.GetSkillNamesAsync(profile.Id);
+            canScrape = skills.Any();
+        }
+    }
+
+    private async Task ScrapeProjects()
+    {
+        if (!canScrape || isScraping)
+            return;
+
+        isScraping = true;
+        try
+        {
+            var profile = await ProfileService.GetCurrentProfileAsync();
+            if (profile != null)
+            {
+                var skills = await ProfileService.GetSkillNamesAsync(profile.Id);
+                var newProjects = await WebScrapingService.ScrapeProjectsAsync(skills);
+                
+                await LoadProjects();
+                await JSRuntime.InvokeVoidAsync("alert", $"Scraping completed! Found {newProjects.Count} new projects.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error during scraping: {ex.Message}");
+        }
+        finally
+        {
+            isScraping = false;
+        }
+    }
+
+    private async Task RefreshProjects()
+    {
+        await LoadProjects();
+    }
+
+    private async Task UpdateProjectStatus(int projectId, Models.ProjectStatus status)
+    {
+        await ProjectService.UpdateProjectStatusAsync(projectId, status);
+        await LoadProjects();
+    }
+
+    private async Task SearchProjects()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            await LoadProjects();
+            return;
+        }
+
+        var searchResults = await ProjectService.SearchProjectsAsync(searchTerm);
+        
+        if (activeTab == "current")
+        {
+            var latestSession = await ProjectService.GetScrapeSessionsAsync();
+            if (latestSession.Any())
+            {
+                currentProjects = searchResults.Where(p => p.ScrapeSessionId == latestSession.First().Id).ToList();
+            }
+        }
+        else
+        {
+            allProjects = searchResults;
+        }
+    }
+
+    private async Task ClearSearch()
+    {
+        searchTerm = "";
+        await LoadProjects();
+    }
+
+    private async Task HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchProjects();
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+    }
+}

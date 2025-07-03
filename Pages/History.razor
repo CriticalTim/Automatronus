@@ -1,0 +1,323 @@
+@page "/history"
+@inject ProjectService ProjectService
+@inject IJSRuntime JSRuntime
+
+<div class="history-page">
+    <div class="sessions-section">
+        <div class="card">
+            <div class="card-header">Scraping Sessions</div>
+            
+            @if (scrapeSessions.Any())
+            {
+                <div class="sessions-list">
+                    @foreach (var session in scrapeSessions)
+                    {
+                        <div class="session-item @(selectedSession?.Id == session.Id ? "selected" : "")" @onclick="() => SelectSession(session)">
+                            <div class="session-info">
+                                <h4>Session @session.Id</h4>
+                                <p><strong>Date:</strong> @session.SessionDate.ToString("dd.MM.yyyy HH:mm")</p>
+                                <p><strong>Search Terms:</strong> @session.SearchTerms</p>
+                                <p><strong>Projects Found:</strong> @session.ProjectsFound</p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <p>No scraping sessions found. Start by scraping some projects!</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (selectedSession != null)
+    {
+        <div class="session-details">
+            <div class="card">
+                <div class="card-header">
+                    Session Details - @selectedSession.SessionDate.ToString("dd.MM.yyyy HH:mm")
+                </div>
+                
+                <div class="session-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">@sessionProjects.Count</span>
+                        <span class="stat-label">Total Projects</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">@sessionProjects.Count(p => p.Status == Models.ProjectStatus.New)</span>
+                        <span class="stat-label">New</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">@sessionProjects.Count(p => p.Status == Models.ProjectStatus.Applied)</span>
+                        <span class="stat-label">Applied</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">@sessionProjects.Count(p => p.Status == Models.ProjectStatus.Success)</span>
+                        <span class="stat-label">Success</span>
+                    </div>
+                </div>
+
+                <div class="search-bar">
+                    <input type="text" @bind="sessionSearchTerm" @onkeypress="HandleSearchKeyPress" placeholder="Search projects in this session..." class="form-control" />
+                    <button class="btn" @onclick="SearchSessionProjects">Search</button>
+                    <button class="btn" @onclick="ClearSessionSearch">Clear</button>
+                </div>
+
+                @if (filteredSessionProjects.Any())
+                {
+                    <div class="projects-table">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Project Name</th>
+                                    <th>Company</th>
+                                    <th>Location</th>
+                                    <th>Budget</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var project in filteredSessionProjects)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@project.Name</strong>
+                                            @if (!string.IsNullOrEmpty(project.Description))
+                                            {
+                                                <br />
+                                                <small>@project.Description.Substring(0, Math.Min(project.Description.Length, 100))...</small>
+                                            }
+                                        </td>
+                                        <td>@project.CompanyName</td>
+                                        <td>@project.Location</td>
+                                        <td>
+                                            @if (project.Budget.HasValue)
+                                            {
+                                                <span>@project.Budget.Value.ToString("C") @project.Currency</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="status-@project.Status.ToString().ToLower()">@project.Status</span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-success" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Applied)">Applied</button>
+                                                <button class="btn btn-danger" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Denied)">Denied</button>
+                                                <button class="btn btn-warning" @onclick="() => UpdateProjectStatus(project.Id, Models.ProjectStatus.Success)">Success</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <p>No projects found in this session.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .history-page {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .sessions-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .session-item {
+        padding: 15px;
+        background-color: var(--accent-bg);
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+
+    .session-item:hover {
+        background-color: var(--secondary-bg);
+        border-color: var(--accent-color);
+    }
+
+    .session-item.selected {
+        border-color: var(--accent-color);
+        background-color: var(--secondary-bg);
+    }
+
+    .session-info h4 {
+        margin: 0 0 10px 0;
+        color: var(--primary-text);
+    }
+
+    .session-info p {
+        margin: 5px 0;
+        color: var(--secondary-text);
+    }
+
+    .session-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 20px;
+        margin: 20px 0;
+    }
+
+    .stat-item {
+        text-align: center;
+        padding: 15px;
+        background-color: var(--accent-bg);
+        border-radius: var(--border-radius);
+    }
+
+    .stat-number {
+        display: block;
+        font-size: 1.8em;
+        font-weight: bold;
+        color: var(--accent-color);
+    }
+
+    .stat-label {
+        color: var(--secondary-text);
+        font-size: 0.9em;
+    }
+
+    .search-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .search-bar input {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    .projects-table {
+        overflow-x: auto;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th,
+    .table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--accent-bg);
+        vertical-align: top;
+    }
+
+    .table th {
+        background-color: var(--accent-bg);
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+    }
+
+    .table tr:hover {
+        background-color: var(--accent-bg);
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    .action-buttons .btn {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--secondary-text);
+    }
+</style>
+
+@code {
+    private List<Models.ScrapeSession> scrapeSessions = new();
+    private Models.ScrapeSession? selectedSession;
+    private List<Models.Project> sessionProjects = new();
+    private List<Models.Project> filteredSessionProjects = new();
+    private string sessionSearchTerm = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSessions();
+    }
+
+    private async Task LoadSessions()
+    {
+        scrapeSessions = await ProjectService.GetScrapeSessionsAsync();
+        
+        if (scrapeSessions.Any() && selectedSession == null)
+        {
+            await SelectSession(scrapeSessions.First());
+        }
+    }
+
+    private async Task SelectSession(Models.ScrapeSession session)
+    {
+        selectedSession = session;
+        sessionProjects = await ProjectService.GetProjectsAsync(session.Id);
+        filteredSessionProjects = sessionProjects;
+        sessionSearchTerm = "";
+    }
+
+    private async Task UpdateProjectStatus(int projectId, Models.ProjectStatus status)
+    {
+        await ProjectService.UpdateProjectStatusAsync(projectId, status);
+        
+        if (selectedSession != null)
+        {
+            await SelectSession(selectedSession);
+        }
+    }
+
+    private async Task SearchSessionProjects()
+    {
+        if (string.IsNullOrWhiteSpace(sessionSearchTerm))
+        {
+            filteredSessionProjects = sessionProjects;
+            return;
+        }
+
+        filteredSessionProjects = sessionProjects
+            .Where(p => p.Name.Contains(sessionSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       (p.Description?.Contains(sessionSearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                       (p.CompanyName?.Contains(sessionSearchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+            .ToList();
+    }
+
+    private async Task ClearSessionSearch()
+    {
+        sessionSearchTerm = "";
+        filteredSessionProjects = sessionProjects;
+    }
+
+    private async Task HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchSessionProjects();
+        }
+    }
+}

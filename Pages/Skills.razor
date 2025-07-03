@@ -1,0 +1,327 @@
+@page "/skills"
+@inject ProfileService ProfileService
+@inject PdfService PdfService
+@inject IJSRuntime JSRuntime
+
+<div class="skills-page">
+    <div class="upload-section">
+        <div class="card">
+            <div class="card-header">Upload Profile PDF</div>
+            <div class="upload-area" @ondrop="HandleDrop" @ondragover="HandleDragOver" @ondragenter="HandleDragEnter" @ondragleave="HandleDragLeave">
+                <input type="file" @ref="fileInput" @onchange="HandleFileSelected" accept=".pdf" style="display: none;" />
+                <div class="upload-content">
+                    <i class="upload-icon">📄</i>
+                    <h3>Drop PDF file here or click to browse</h3>
+                    <p>Upload your profile PDF to extract skills and projects</p>
+                    <button class="btn" @onclick="OpenFileDialog">Choose File</button>
+                </div>
+            </div>
+            
+            @if (!string.IsNullOrEmpty(selectedFileName))
+            {
+                <div class="selected-file">
+                    <strong>Selected:</strong> @selectedFileName
+                    <button class="btn" @onclick="ProcessPdf" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span>Processing...</span>
+                        }
+                        else
+                        {
+                            <span>Extract Skills</span>
+                        }
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (extractedSkills.Any())
+    {
+        <div class="skills-section">
+            <div class="card">
+                <div class="card-header">Extracted Skills</div>
+                <div class="skills-list">
+                    @foreach (var skill in extractedSkills)
+                    {
+                        <div class="skill-tag">
+                            @skill
+                            <button class="skill-remove" @onclick="() => RemoveSkill(skill)">×</button>
+                        </div>
+                    }
+                </div>
+                <div class="skill-actions">
+                    <input type="text" @bind="newSkill" @onkeypress="HandleKeyPress" placeholder="Add new skill..." class="form-control" />
+                    <button class="btn" @onclick="AddSkill">Add Skill</button>
+                    <button class="btn btn-success" @onclick="SaveSkills">Save Skills</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (extractedProjects.Any())
+    {
+        <div class="projects-section">
+            <div class="card">
+                <div class="card-header">Extracted Projects</div>
+                <div class="projects-list">
+                    @foreach (var project in extractedProjects)
+                    {
+                        <div class="project-item">
+                            <p>@project</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (savedSkills.Any())
+    {
+        <div class="current-skills">
+            <div class="card">
+                <div class="card-header">Current Skills Profile</div>
+                <div class="skills-list">
+                    @foreach (var skill in savedSkills)
+                    {
+                        <div class="skill-tag">@skill</div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .skills-page {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .upload-area {
+        border: 2px dashed var(--accent-bg);
+        border-radius: var(--border-radius);
+        padding: 40px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .upload-area:hover,
+    .upload-area.drag-over {
+        border-color: var(--accent-color);
+        background-color: rgba(74, 144, 226, 0.1);
+    }
+
+    .upload-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .upload-icon {
+        font-size: 3em;
+    }
+
+    .selected-file {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+        padding: 10px;
+        background-color: var(--accent-bg);
+        border-radius: var(--border-radius);
+    }
+
+    .skills-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .skill-tag {
+        background-color: var(--accent-color);
+        color: var(--primary-text);
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .skill-remove {
+        background: none;
+        border: none;
+        color: var(--primary-text);
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        padding: 0;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+    .skill-remove:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .skill-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .skill-actions input {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    .project-item {
+        background-color: var(--accent-bg);
+        padding: 15px;
+        border-radius: var(--border-radius);
+        margin-bottom: 10px;
+    }
+
+    .project-item p {
+        margin: 0;
+        line-height: 1.5;
+    }
+</style>
+
+@code {
+    private ElementReference fileInput;
+    private string selectedFileName = "";
+    private bool isProcessing = false;
+    private List<string> extractedSkills = new();
+    private List<string> extractedProjects = new();
+    private List<string> savedSkills = new();
+    private string newSkill = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurrentSkills();
+    }
+
+    private async Task LoadCurrentSkills()
+    {
+        var profile = await ProfileService.GetCurrentProfileAsync();
+        if (profile != null)
+        {
+            savedSkills = await ProfileService.GetSkillNamesAsync(profile.Id);
+        }
+    }
+
+    private async Task OpenFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("document.getElementById", fileInput).AsTask();
+        await JSRuntime.InvokeVoidAsync("eval", $"document.querySelector('input[type=file]').click()");
+    }
+
+    private async Task HandleFileSelected(ChangeEventArgs e)
+    {
+        var files = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(files))
+        {
+            selectedFileName = files.Split('\\').Last();
+        }
+    }
+
+    private async Task ProcessPdf()
+    {
+        if (string.IsNullOrEmpty(selectedFileName))
+            return;
+
+        isProcessing = true;
+        try
+        {
+            var filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), selectedFileName);
+            var (skills, projects) = await PdfService.ExtractSkillsAndProjectsAsync(filePath);
+            
+            extractedSkills = skills;
+            extractedProjects = projects;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error processing PDF: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void AddSkill()
+    {
+        if (!string.IsNullOrWhiteSpace(newSkill) && !extractedSkills.Contains(newSkill))
+        {
+            extractedSkills.Add(newSkill);
+            newSkill = "";
+        }
+    }
+
+    private void RemoveSkill(string skill)
+    {
+        extractedSkills.Remove(skill);
+    }
+
+    private async Task SaveSkills()
+    {
+        var profile = await ProfileService.GetCurrentProfileAsync();
+        if (profile == null)
+        {
+            profile = new Models.Profile
+            {
+                Email = "user@example.com",
+                AppName = "Automatronus",
+                PdfFileName = selectedFileName
+            };
+            profile = await ProfileService.CreateOrUpdateProfileAsync(profile);
+        }
+
+        await ProfileService.AddSkillsToProfileAsync(profile.Id, extractedSkills);
+        savedSkills = extractedSkills.ToList();
+        
+        await JSRuntime.InvokeVoidAsync("alert", "Skills saved successfully!");
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            AddSkill();
+        }
+    }
+
+    private void HandleDragOver(DragEventArgs e)
+    {
+        e.DataTransfer.DropEffect = "copy";
+    }
+
+    private void HandleDragEnter(DragEventArgs e)
+    {
+        // Add drag-over class
+    }
+
+    private void HandleDragLeave(DragEventArgs e)
+    {
+        // Remove drag-over class
+    }
+
+    private async Task HandleDrop(DragEventArgs e)
+    {
+        var files = e.DataTransfer.Files;
+        if (files.Length > 0)
+        {
+            selectedFileName = files[0];
+        }
+    }
+}

@@ -1,0 +1,181 @@
+@page "/"
+@inject ProfileService ProfileService
+@inject ProjectService ProjectService
+@inject IJSRuntime JSRuntime
+
+<div class="dashboard">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>@totalProjects</h3>
+            <p>Total Projects</p>
+        </div>
+        <div class="stat-card">
+            <h3>@newProjects</h3>
+            <p>New Projects</p>
+        </div>
+        <div class="stat-card">
+            <h3>@appliedProjects</h3>
+            <p>Applied Projects</p>
+        </div>
+        <div class="stat-card">
+            <h3>@successProjects</h3>
+            <p>Success Projects</p>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <div class="card">
+            <div class="card-header">Quick Actions</div>
+            <div class="action-buttons">
+                <button class="btn" @onclick="NavigateToSkills">
+                    Upload Profile
+                </button>
+                <button class="btn" @onclick="NavigateToProjects" disabled="@(!hasProfile)">
+                    View Projects
+                </button>
+                <button class="btn" @onclick="NavigateToHistory">
+                    View History
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (recentProjects.Any())
+    {
+        <div class="recent-projects">
+            <div class="card">
+                <div class="card-header">Recent Projects</div>
+                <div class="projects-list">
+                    @foreach (var project in recentProjects.Take(5))
+                    {
+                        <div class="project-item">
+                            <div class="project-info">
+                                <h4>@project.Name</h4>
+                                <p>@project.CompanyName</p>
+                                <small>@project.DateScraped.ToString("dd.MM.yyyy")</small>
+                            </div>
+                            <div class="project-status">
+                                <span class="status-@project.Status.ToString().ToLower()">@project.Status</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .stat-card {
+        background-color: var(--secondary-bg);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        text-align: center;
+        border: 1px solid var(--accent-bg);
+    }
+
+    .stat-card h3 {
+        font-size: 2em;
+        color: var(--accent-color);
+        margin-bottom: 10px;
+    }
+
+    .stat-card p {
+        color: var(--secondary-text);
+        margin: 0;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .projects-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .project-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background-color: var(--accent-bg);
+        border-radius: var(--border-radius);
+    }
+
+    .project-info h4 {
+        margin: 0 0 5px 0;
+        color: var(--primary-text);
+    }
+
+    .project-info p {
+        margin: 0 0 5px 0;
+        color: var(--secondary-text);
+    }
+
+    .project-info small {
+        color: var(--secondary-text);
+        font-size: 0.8em;
+    }
+</style>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    
+    private int totalProjects = 0;
+    private int newProjects = 0;
+    private int appliedProjects = 0;
+    private int successProjects = 0;
+    private bool hasProfile = false;
+    private List<Models.Project> recentProjects = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        var profile = await ProfileService.GetCurrentProfileAsync();
+        hasProfile = profile != null;
+
+        var projects = await ProjectService.GetProjectsAsync();
+        totalProjects = projects.Count;
+        newProjects = await ProjectService.GetProjectCountByStatusAsync(Models.ProjectStatus.New);
+        appliedProjects = await ProjectService.GetProjectCountByStatusAsync(Models.ProjectStatus.Applied);
+        successProjects = await ProjectService.GetProjectCountByStatusAsync(Models.ProjectStatus.Success);
+        
+        recentProjects = projects.Take(5).ToList();
+    }
+
+    private void NavigateToSkills()
+    {
+        Navigation.NavigateTo("/skills");
+    }
+
+    private void NavigateToProjects()
+    {
+        Navigation.NavigateTo("/projects");
+    }
+
+    private void NavigateToHistory()
+    {
+        Navigation.NavigateTo("/history");
+    }
+}

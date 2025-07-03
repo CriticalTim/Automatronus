@@ -1,0 +1,207 @@
+@inherits LayoutComponentBase
+
+<div class="main-container">
+    <div class="sidebar">
+        <h3 style="margin-bottom: 30px; color: var(--primary-text);">Automatronus</h3>
+        <nav>
+            <ul class="sidebar-nav">
+                <li><a href="/" class="@GetNavLinkClass("")">Dashboard</a></li>
+                <li><a href="/skills" class="@GetNavLinkClass("skills")">Skills</a></li>
+                <li><a href="/projects" class="@GetNavLinkClass("projects")">Projects</a></li>
+                <li><a href="/history" class="@GetNavLinkClass("history")">History</a></li>
+            </ul>
+        </nav>
+    </div>
+    
+    <div class="main-content">
+        <div class="header">
+            <h1>@GetPageTitle()</h1>
+            <div class="profile-section">
+                <div class="profile-avatar">
+                    @if (!string.IsNullOrEmpty(CurrentProfile?.Name))
+                    {
+                        @CurrentProfile.Name.Substring(0, 1).ToUpper()
+                    }
+                    else
+                    {
+                        <span>U</span>
+                    }
+                </div>
+                <div>
+                    <div style="font-weight: bold;">@(CurrentProfile?.Name ?? "User")</div>
+                    <div style="font-size: 0.9em; color: var(--secondary-text);">@(CurrentProfile?.Email ?? "No email set")</div>
+                </div>
+                <button class="btn" @onclick="ShowProfileModal">Profile</button>
+            </div>
+        </div>
+        
+        @Body
+    </div>
+</div>
+
+@if (showProfileModal)
+{
+    <div class="modal-overlay" @onclick="HideProfileModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Profile Settings</h3>
+                <button class="btn-close" @onclick="HideProfileModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="@profileModel" OnValidSubmit="@SaveProfile">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <InputText @bind-Value="profileModel.Name" class="form-control" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <InputText @bind-Value="profileModel.Email" class="form-control" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>App Name:</label>
+                        <InputText @bind-Value="profileModel.AppName" class="form-control" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn">Save Profile</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background-color: var(--secondary-bg);
+        border-radius: var(--border-radius);
+        padding: 0;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid var(--accent-bg);
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .btn-close {
+        background: none;
+        border: none;
+        color: var(--primary-text);
+        font-size: 24px;
+        cursor: pointer;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+</style>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private ProfileService ProfileService { get; set; } = default!;
+    
+    private bool showProfileModal = false;
+    private Models.Profile? CurrentProfile;
+    private Models.Profile profileModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        CurrentProfile = await ProfileService.GetCurrentProfileAsync();
+        if (CurrentProfile != null)
+        {
+            profileModel = new Models.Profile
+            {
+                Name = CurrentProfile.Name,
+                Email = CurrentProfile.Email,
+                AppName = CurrentProfile.AppName
+            };
+        }
+    }
+
+    private void ShowProfileModal()
+    {
+        showProfileModal = true;
+    }
+
+    private void HideProfileModal()
+    {
+        showProfileModal = false;
+    }
+
+    private async Task SaveProfile()
+    {
+        if (CurrentProfile != null)
+        {
+            CurrentProfile.Name = profileModel.Name;
+            CurrentProfile.Email = profileModel.Email;
+            CurrentProfile.AppName = profileModel.AppName;
+        }
+        else
+        {
+            CurrentProfile = new Models.Profile
+            {
+                Name = profileModel.Name,
+                Email = profileModel.Email,
+                AppName = profileModel.AppName
+            };
+        }
+
+        await ProfileService.CreateOrUpdateProfileAsync(CurrentProfile);
+        showProfileModal = false;
+        StateHasChanged();
+    }
+
+    private string GetNavLinkClass(string page)
+    {
+        var currentPath = Navigation.Uri.Split('/').Last();
+        return currentPath.Equals(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    }
+
+    private string GetPageTitle()
+    {
+        var currentPath = Navigation.Uri.Split('/').Last();
+        return currentPath switch
+        {
+            "" => "Dashboard",
+            "skills" => "Skills",
+            "projects" => "Projects",
+            "history" => "History",
+            _ => "Automatronus"
+        };
+    }
+}
